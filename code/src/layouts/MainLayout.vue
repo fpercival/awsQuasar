@@ -15,7 +15,10 @@
           Quasar App
         </q-toolbar-title>
 
-        <div>Quasar v{{ $q.version }}</div>
+         <div class="absolute-right" v-if="loggedIn">
+          {{this.user}}
+          <q-btn @click="logout()" flat label="LogOut" class="right" />
+        </div>
       </q-toolbar>
     </q-header>
 
@@ -25,20 +28,23 @@
       bordered
       content-class="bg-grey-1"
     >
-      <q-list>
-        <q-item-label
-          header
-          class="text-grey-8"
-        >
-          Essential Links
-        </q-item-label>
-        <EssentialLink
-          v-for="link in essentialLinks"
-          :key="link.title"
-          v-bind="link"
-        />
-      </q-list>
+     <q-list v-for="(menuItem, index) in menuList" :key="index">
+          <q-item :to="localized_url(menuItem.link)" clickable v-ripple>
+            <q-item-section avatar>
+              <q-icon :name="menuItem.icon" />
+            </q-item-section>
+            <q-item-section>
+              {{ menuItem.title }}
+              <q-item-label caption>{{ menuItem.caption }}</q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-separator v-if="menuItem.separator" />
+        </q-list> 
     </q-drawer>
+    
+     <amplify-authenticator v-if="!loggedIn" username-alias="email" hideDefault={true}>
+       <amplify-sign-up slot="sign-up" username-alias="email" :form-fields.prop="formFields" />
+     </amplify-authenticator>
 
     <q-page-container>
       <router-view />
@@ -47,7 +53,9 @@
 </template>
 
 <script>
-import EssentialLink from 'components/EssentialLink.vue'
+import '@aws-amplify/ui-vue';
+import {auth_logout} from 'src/services/cloud';
+import { onAuthUIStateChange } from '@aws-amplify/ui-components';
 
 const linksData = [
   {
@@ -96,12 +104,60 @@ const linksData = [
 
 export default {
   name: 'MainLayout',
-  components: { EssentialLink },
+  created() {
+    this.unsubscribeAuth = onAuthUIStateChange((authState, authData) => {
+      console.log(this.loggedIn);
+        this.loggedIn=false
+      if(authState=='signedin'){
+        this.loggedIn = true
+      this.user = authData.username;
+      console.log(this.user);
+      }
+      else{
+        this.user=""
+      }
+      }
+    )
+  },
   data () {
     return {
-      leftDrawerOpen: false,
-      essentialLinks: linksData
+      leftDrawerOpen: false, 
+      formFields: [{ type: "email" }, { type: "password" }],   
+      loggedIn: false,
+      menuList:  [
+        {
+          title: 'Upload',
+          caption: 'This is to upload the files',
+          icon: '',
+          link: '/upload'
+        },
+        {
+          title: 'View',
+          caption: '',
+          icon: 'code',
+          link: '/view'
+        },
+        {
+          title: 'Impressum',
+          caption: '',
+          icon: '',
+          link: '/impressum'
+        },
+        
+      ],
     }
-  }
+  },
+  methods: {
+    localized_url(url){
+      return(url)
+    },
+    async logout(){
+  console.log("logout called");
+     const stat = await auth_logout();
+     if (stat.status == "ok"){
+       this.loggedIn=false;
+     }
+    }
+  },
 }
 </script>
